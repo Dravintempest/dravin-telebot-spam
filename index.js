@@ -17,7 +17,9 @@ const BOT_POOL = [
     '7750859547:AAFpQkR8b07vsv8ATbTg8KGm8ADbWqcJ9NY',
     '7792503351:AAEgPBzSPK-FPaTKi_ne-lzm0VMRoM_rlfU',
     '7579240640:AAEB2coAuLXtiv9mLOIGyHTzd-wru0RuoVE',
-    '7774296066:AAEDx10qvSJgE1GKoXQU3uxu2fVZKqPO8Vo'
+    '7774296066:AAEDx10qvSJgE1GKoXQU3uxu2fVZKqPO8Vo',
+    '7448247840:AAFaHu_z89WbgVFb7NKv1S8h1yCs_OY7ijQ',
+    '8054088262:AAFQ2__GJQx6mjr_nHADDC89k-HXXO26exc'
 ];
 
 const question = (text) => {
@@ -103,7 +105,7 @@ const login = async () => {
         chalk.cyan(' └────╼') + ' ' + chalk.red('❯') + chalk.hex('#FFA500')('❯') + chalk.blue('❯ ')
     );
 
-    if (username === 'dravin' && password === 'dravin123') {
+    if (username === 'dravin' && password === 'dravintools') {
         console.log(chalk.green("\n[✓] Login berhasil!"));
         await sleep(1000);
         return true;
@@ -160,7 +162,7 @@ async function startSpam() {
         
         // Bot selection
         console.log(chalk.cyan("\nPilihan Bot:"));
-        console.log(chalk.cyan("1. Gunakan 4 Bot Dravin"));
+        console.log(chalk.cyan("1. Gunakan 6 Bot Dravin"));
         console.log(chalk.cyan("2. Gunakan Bot Custom\n"));
         
         const botChoice = await question(chalk.yellow("Pilihan (1/2): "));
@@ -168,7 +170,7 @@ async function startSpam() {
         
         if (botChoice === '1') {
             selectedBots = BOT_POOL;
-            console.log(chalk.green("\nMenggunakan 4 Bot Dravin"));
+            console.log(chalk.green("\nMenggunakan 6 Bot Dravin"));
         } else {
             const customToken = await question(chalk.yellow("\nMasukkan Token Bot Custom: "));
             if (!/^\d{8,10}:[a-zA-Z0-9_-]{35}$/.test(customToken)) {
