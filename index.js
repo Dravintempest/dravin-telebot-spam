@@ -258,7 +258,7 @@ async function startSpam() {
             }
             
             // Delay antara pesan
-            if (i < jumlah - 1) await sleep(1000);
+            if (i < jumlah - 1) await sleep(100);
         }
 
         console.log(chalk.cyan("\n📊 Ringkasan"));
