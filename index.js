@@ -28,8 +28,8 @@ const question = (text) => {
 
 const progressBar = async (text = "Menyiapkan koneksi", total = 15, delay = 150) => {
     for (let i = 0; i <= total; i++) {
-        const filled = chalk.green("█".repeat(i));
-        const empty = chalk.gray("░".repeat(total - i));
+        const filled = chalk.green("|".repeat(i));
+        const empty = chalk.gray("|".repeat(total - i));
         const bar = filled + empty;
         process.stdout.write(`\r${chalk.yellow(`[⌛] ${text}:`)} ${bar}`);
         await sleep(delay);
