@@ -1,0 +1,19 @@
+{
+  "name": "dravin-telebot-spam",
+  "version": "2.0.0",
+  "description": "Telegram bot spam Tools - For Educational Purposes",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.1",
+    "chalk": "^5.3.0",
+    "axios": "^1.6.2",
+    "figlet": "^1.7.0",
+    "gradient-string": "^2.0.1",
+    "pino": "^8.17.0"
+  },
+  "author": "Dravin",
+  "license": "MIT"
+}
