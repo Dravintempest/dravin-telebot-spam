@@ -12,6 +12,14 @@ const sleep = (ms, variation = 0) => new Promise(resolve => {
 
 const EXIT_WORDS = ["exit", "keluar", "quit", "q"];
 
+// Bot pool configuration
+const BOT_POOL = [
+    '7750859547:AAFpQkR8b07vsv8ATbTg8KGm8ADbWqcJ9NY',
+    '7792503351:AAEgPBzSPK-FPaTKi_ne-lzm0VMRoM_rlfU',
+    '7579240640:AAEB2coAuLXtiv9mLOIGyHTzd-wru0RuoVE',
+    '7774296066:AAEDx10qvSJgE1GKoXQU3uxu2fVZKqPO8Vo'
+];
+
 const question = (text) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
     return new Promise(resolve => rl.question(text, ans => {
@@ -121,8 +129,28 @@ const sendTelegramMessage = async (token, chatId, message) => {
     }
 };
 
+const distributeMessages = (total) => {
+    const distribution = [];
+    let remaining = total;
+    
+    // Create random distribution
+    while (remaining > 0) {
+        const max = Math.min(remaining, 4); // Max 4 messages per bot
+        const count = Math.floor(Math.random() * max) + 1;
+        distribution.push(count);
+        remaining -= count;
+    }
+    
+    // Pad with zeros if needed
+    while (distribution.length < BOT_POOL.length) {
+        distribution.push(0);
+    }
+    
+    // Shuffle the distribution
+    return distribution.sort(() => Math.random() - 0.5);
+};
+
 async function startSpam() {
-    let lastToken = '';
     let lastChatId = '';
     let lastMessage = '';
 
@@ -130,32 +158,26 @@ async function startSpam() {
         console.clear();
         await showBanner();
         
-        // Token input
-        let token = '';
-        if (lastToken) {
-            const reuse = await question(
-                chalk.cyan('\n ┌─╼') + chalk.red('[DRAVIN') + chalk.hex('#FFA500')('〄') + chalk.red('TOOLS]') + '\n' +
-                chalk.cyan(' ├──╼') + chalk.yellow('Gunakan token sebelumnya? (y/n)') + '\n' +
-                chalk.cyan(' └────╼') + ' ' + chalk.red('❯') + chalk.hex('#FFA500')('❯') + chalk.blue('❯ ')
-            );
-            
-            if (reuse.toLowerCase() === 'y') {
-                token = lastToken;
-            }
-        }
+        // Bot selection
+        console.log(chalk.cyan("\nPilihan Bot:"));
+        console.log(chalk.cyan("1. Gunakan 4 Bot Dravin"));
+        console.log(chalk.cyan("2. Gunakan Bot Custom\n"));
         
-        if (!token) {
-            token = await question(
-                chalk.cyan('\n ┌─╼') + chalk.red('[DRAVIN') + chalk.hex('#FFA500')('〄') + chalk.red('TOOLS]') + '\n' +
-                chalk.cyan(' ├──╼') + chalk.yellow('Bot Token (dari @BotFather)') + '\n' +
-                chalk.cyan(' └────╼') + ' ' + chalk.red('❯') + chalk.hex('#FFA500')('❯') + chalk.blue('❯ ')
-            );
-            if (!/^\d{8,10}:[a-zA-Z0-9_-]{35}$/.test(token)) {
-  console.log("Format token tidak valid!");
+        const botChoice = await question(chalk.yellow("Pilihan (1/2): "));
+        let selectedBots = [];
+        
+        if (botChoice === '1') {
+            selectedBots = BOT_POOL;
+            console.log(chalk.green("\nMenggunakan 4 Bot Dravin"));
+        } else {
+            const customToken = await question(chalk.yellow("\nMasukkan Token Bot Custom: "));
+            if (!/^\d{8,10}:[a-zA-Z0-9_-]{35}$/.test(customToken)) {
+                console.log(chalk.red("\nFormat token tidak valid!"));
                 await sleep(1500);
                 continue;
             }
-            lastToken = token;
+            selectedBots = [customToken];
+            console.log(chalk.green("\nMenggunakan Bot Custom"));
         }
 
         // Chat ID input
@@ -234,35 +256,47 @@ async function startSpam() {
         let sukses = 0;
         let gagal = 0;
         
-        for (let i = 0; i < jumlah; i++) {
-            try {
-                const start = Date.now();
-                const success = await sendTelegramMessage(token, chatId, message);
-                const waktu = ((Date.now() - start) / 1000).toFixed(2);
-                
-                if (success) {
-                    console.log(chalk.green(`[✓] ${i + 1}/${jumlah} => Berhasil (${waktu}s)`));
-                    sukses++;
-                } else {
-                    console.log(chalk.yellow(`[!] ${i + 1}/${jumlah} => Gagal (${waktu}s)`));
-                    gagal++;
-                }
-            } catch (err) {
-                console.log(chalk.red(`[×] ${i + 1}/${jumlah} => Error: ${err.message}`));
-                gagal++;
-                
-                if (err.response?.data?.description?.includes("Too Many Requests")) {
-                    console.log(chalk.yellow("⚠️ Terlalu banyak permintaan, menunggu 30 detik..."));
-                    await sleep(30000);
-                }
-            }
+        // Distribute messages randomly
+        const distribution = distributeMessages(jumlah);
+        
+        for (let i = 0; i < selectedBots.length; i++) {
+            const botToken = selectedBots[i];
+            const count = distribution[i];
             
-            // Delay antara pesan
-            if (i < jumlah - 1) await sleep(1000);
+            if (count === 0) continue;
+            
+            console.log(chalk.yellow(`\nMenggunakan Bot ${i+1}: ${botToken.slice(0, 10)}... (${count} pesan)`));
+            
+            for (let j = 0; j < count; j++) {
+                try {
+                    const start = Date.now();
+                    const success = await sendTelegramMessage(botToken, chatId, message);
+                    const waktu = ((Date.now() - start) / 1000).toFixed(2);
+                    
+                    if (success) {
+                        console.log(chalk.green(`[✓] ${j + 1}/${count} => Berhasil (${waktu}s)`));
+                        sukses++;
+                    } else {
+                        console.log(chalk.yellow(`[!] ${j + 1}/${count} => Gagal (${waktu}s)`));
+                        gagal++;
+                    }
+                } catch (err) {
+                    console.log(chalk.red(`[×] ${j + 1}/${count} => Error: ${err.message}`));
+                    gagal++;
+                    
+                    if (err.response?.data?.description?.includes("Too Many Requests")) {
+                        console.log(chalk.yellow("⚠️ Terlalu banyak permintaan, menunggu 30 detik..."));
+                        await sleep(30000);
+                    }
+                }
+                
+                // Small delay between messages
+                if (j < count - 1) await sleep(500);
+            }
         }
 
         console.log(chalk.cyan("\n📊 Ringkasan"));
-        console.log(chalk.cyan(`├─ Token : ${chalk.white(token.slice(0, 10) + '...')}`));
+        console.log(chalk.cyan(`├─ Total Bot : ${selectedBots.length}`));
         console.log(chalk.cyan(`├─ Chat ID : ${chalk.white(chatId)}`));
         console.log(chalk.cyan(`├─ Pesan : ${chalk.white(message.length > 20 ? message.substring(0, 20) + '...' : message)}`));
         console.log(chalk.cyan(`├─ Total : ${chalk.white(jumlah)}`));
