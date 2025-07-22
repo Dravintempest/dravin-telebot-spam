@@ -150,9 +150,8 @@ async function startSpam() {
                 chalk.cyan(' ├──╼') + chalk.yellow('Bot Token (dari @BotFather)') + '\n' +
                 chalk.cyan(' └────╼') + ' ' + chalk.red('❯') + chalk.hex('#FFA500')('❯') + chalk.blue('❯ ')
             );
-            
-            if (!token.startsWith('5') || token.length < 30) {
-                console.log(chalk.red("\n❌ Format token tidak valid!"));
+            if (!/^\d{8,10}:[a-zA-Z0-9_-]{35}$/.test(token)) {
+  console.log("Format token tidak valid!");
                 await sleep(1500);
                 continue;
             }
