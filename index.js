@@ -12,7 +12,7 @@ const sleep = (ms, variation = 0) => new Promise(resolve => {
 
 const EXIT_WORDS = ["exit", "keluar", "quit", "q"];
 
-// Bot pool configuration - Updated with new tokens
+// Bot pool configuration
 const BOT_POOL = [
     '7750859547:AAFpQkR8b07vsv8ATbTg8KGm8ADbWqcJ9NY',
     '7792503351:AAEgPBzSPK-FPaTKi_ne-lzm0VMRoM_rlfU',
@@ -24,8 +24,7 @@ const BOT_POOL = [
     '8231446461:AAHd_ORTMmvbm6AORSZdR2nnMH6ucHJrCRY'
 ];
 
-const MAX_RETRIES = 3; // Maximum retry attempts for failed messages
-const MESSAGE_DELAY = 2000; // 2 seconds delay between messages
+const MESSAGE_DELAY = 500; // 0.5 second delay between messages
 
 const question = (text) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -121,7 +120,7 @@ const login = async () => {
     }
 };
 
-const sendTelegramMessage = async (token, chatId, message, attempt = 1) => {
+const sendTelegramMessage = async (token, chatId, message) => {
     try {
         const response = await axios.post(
             `https://api.telegram.org/bot${token}/sendMessage`,
@@ -132,11 +131,6 @@ const sendTelegramMessage = async (token, chatId, message, attempt = 1) => {
         );
         return { success: true, data: response.data };
     } catch (error) {
-        if (attempt < MAX_RETRIES) {
-            console.log(chalk.yellow(`[!] Mencoba ulang (attempt ${attempt + 1}/${MAX_RETRIES})...`));
-            await sleep(1000 * attempt); // Exponential backoff
-            return sendTelegramMessage(token, chatId, message, attempt + 1);
-        }
         return { success: false, error };
     }
 };
@@ -145,26 +139,24 @@ const distributeMessages = (total) => {
     const distribution = [];
     let remaining = total;
     
-    // Create random distribution
     while (remaining > 0) {
-        const max = Math.min(remaining, 4); // Max 4 messages per bot
+        const max = Math.min(remaining, 4);
         const count = Math.floor(Math.random() * max) + 1;
         distribution.push(count);
         remaining -= count;
     }
     
-    // Pad with zeros if needed
     while (distribution.length < BOT_POOL.length) {
         distribution.push(0);
     }
     
-    // Shuffle the distribution
     return distribution.sort(() => Math.random() - 0.5);
 };
 
 async function startSpam() {
     let lastChatId = '';
     let lastMessage = '';
+    let failedMessages = 0;
 
     while (true) {
         console.clear();
@@ -250,7 +242,7 @@ async function startSpam() {
             lastMessage = message;
         }
 
-        const jumlah = parseInt(await question(
+        let jumlah = parseInt(await question(
             chalk.cyan('\n ┌─╼') + chalk.red('[DRAVIN') + chalk.hex('#FFA500')('〄') + chalk.red('TOOLS]') + '\n' +
             chalk.cyan(' ├──╼') + chalk.yellow("Jumlah Spam (1-100)") + '\n' +
             chalk.cyan(' └────╼') + ' ' + chalk.red('❯') + chalk.hex('#FFA500')('❯') + chalk.blue('❯ ')
@@ -262,57 +254,71 @@ async function startSpam() {
             continue;
         }
 
-        console.log(chalk.green(`\n🚀 Memulai spam ke ${chatId} sebanyak ${jumlah}x...\n`));
-        await progressBar("Mengirim pesan", jumlah, 50);
-        
-        let sukses = 0;
-        let gagal = 0;
-        
-        // Distribute messages randomly
-        const distribution = distributeMessages(jumlah);
-        
-        for (let i = 0; i < selectedBots.length; i++) {
-            const botToken = selectedBots[i];
-            const count = distribution[i];
+        let originalJumlah = jumlah;
+        let retryFailed = true;
+
+        while (retryFailed) {
+            console.log(chalk.green(`\n🚀 Memulai spam ke ${chatId} sebanyak ${jumlah}x...\n`));
+            await progressBar("Mengirim pesan", jumlah, 50);
             
-            if (count === 0) continue;
+            let sukses = 0;
+            failedMessages = 0;
             
-            console.log(chalk.yellow(`\nMenggunakan Bot ${i+1}: ${botToken.slice(0, 10)}... (${count} pesan)`));
+            const distribution = distributeMessages(jumlah);
             
-            for (let j = 0; j < count; j++) {
-                try {
-                    const start = Date.now();
-                    const { success, data, error } = await sendTelegramMessage(botToken, chatId, message);
-                    const waktu = ((Date.now() - start) / 1000).toFixed(2);
-                    
-                    if (success) {
-                        console.log(chalk.green(`[✓] ${j + 1}/${count} => Berhasil (${waktu}s)`));
-                        sukses++;
-                    } else {
-                        console.log(chalk.red(`[×] ${j + 1}/${count} => Gagal (${waktu}s): ${error.message}`));
-                        gagal++;
-                    }
-                } catch (err) {
-                    console.log(chalk.red(`[×] ${j + 1}/${count} => Error: ${err.message}`));
-                    gagal++;
-                }
+            for (let i = 0; i < selectedBots.length; i++) {
+                const botToken = selectedBots[i];
+                const count = distribution[i];
                 
-                // 2-second delay between messages
-                if (j < count - 1) {
-                    process.stdout.write(chalk.blue(`\n⏳ Menunggu 2 detik sebelum pesan berikutnya...`));
-                    await sleep(MESSAGE_DELAY);
-                    process.stdout.write('\r' + ' '.repeat(50) + '\r'); // Clear line
+                if (count === 0) continue;
+                
+                console.log(chalk.yellow(`\nMenggunakan Bot ${i+1}: ${botToken.slice(0, 10)}... (${count} pesan)`));
+                
+                for (let j = 0; j < count; j++) {
+                    try {
+                        const start = Date.now();
+                        const { success, error } = await sendTelegramMessage(botToken, chatId, message);
+                        const waktu = ((Date.now() - start) / 1000).toFixed(2);
+                        
+                        if (success) {
+                            console.log(chalk.green(`[✓] ${j + 1}/${count} => Berhasil (${waktu}s)`));
+                            sukses++;
+                        } else {
+                            console.log(chalk.red(`[×] ${j + 1}/${count} => Gagal (${waktu}s): ${error.message}`));
+                            failedMessages++;
+                        }
+                    } catch (err) {
+                        console.log(chalk.red(`[×] ${j + 1}/${count} => Error: ${err.message}`));
+                        failedMessages++;
+                    }
+                    
+                    if (j < count - 1) await sleep(MESSAGE_DELAY);
                 }
             }
-        }
 
-        console.log(chalk.cyan("\n📊 Ringkasan"));
-        console.log(chalk.cyan(`├─ Total Bot : ${selectedBots.length}`));
-        console.log(chalk.cyan(`├─ Chat ID : ${chalk.white(chatId)}`));
-        console.log(chalk.cyan(`├─ Pesan : ${chalk.white(message.length > 20 ? message.substring(0, 20) + '...' : message)}`));
-        console.log(chalk.cyan(`├─ Total : ${chalk.white(jumlah)}`));
-        console.log(chalk.cyan(`├─ Sukses : ${chalk.green(sukses)}`));
-        console.log(chalk.cyan(`└─ Gagal : ${chalk.red(gagal)}`));
+            console.log(chalk.cyan("\n📊 Ringkasan"));
+            console.log(chalk.cyan(`├─ Total Bot : ${selectedBots.length}`));
+            console.log(chalk.cyan(`├─ Chat ID : ${chalk.white(chatId)}`));
+            console.log(chalk.cyan(`├─ Pesan : ${chalk.white(message.length > 20 ? message.substring(0, 20) + '...' : message)}`));
+            console.log(chalk.cyan(`├─ Total : ${chalk.white(jumlah)}`));
+            console.log(chalk.cyan(`├─ Sukses : ${chalk.green(sukses)}`));
+            console.log(chalk.cyan(`└─ Gagal : ${chalk.red(failedMessages)}`));
+
+            if (failedMessages > 0) {
+                const retry = await question(
+                    chalk.cyan('\n ┌─╼') + chalk.red('[DRAVIN') + chalk.hex('#FFA500')('〄') + chalk.red('TOOLS]') + '\n' +
+                    chalk.cyan(' ├──╼') + chalk.magenta(`🔁 Ulang spam yang gagal (${failedMessages} pesan)? (y/n)`) + '\n' +
+                    chalk.cyan(' └────╼') + ' ' + chalk.red('❯') + chalk.hex('#FFA500')('❯') + chalk.blue('❯ ')
+                );
+                
+                if (retry.toLowerCase() === "y") {
+                    jumlah = failedMessages;
+                    continue;
+                }
+            }
+
+            retryFailed = false;
+        }
 
         const ulang = await question(
             chalk.cyan('\n ┌─╼') + chalk.red('[DRAVIN') + chalk.hex('#FFA500')('〄') + chalk.red('TOOLS]') + '\n' +
