@@ -12,15 +12,20 @@ const sleep = (ms, variation = 0) => new Promise(resolve => {
 
 const EXIT_WORDS = ["exit", "keluar", "quit", "q"];
 
-// Bot pool configuration
+// Bot pool configuration - Updated with new tokens
 const BOT_POOL = [
     '7750859547:AAFpQkR8b07vsv8ATbTg8KGm8ADbWqcJ9NY',
     '7792503351:AAEgPBzSPK-FPaTKi_ne-lzm0VMRoM_rlfU',
     '7579240640:AAEB2coAuLXtiv9mLOIGyHTzd-wru0RuoVE',
     '7774296066:AAEDx10qvSJgE1GKoXQU3uxu2fVZKqPO8Vo',
     '7448247840:AAFaHu_z89WbgVFb7NKv1S8h1yCs_OY7ijQ',
-    '8054088262:AAFQ2__GJQx6mjr_nHADDC89k-HXXO26exc'
+    '8054088262:AAFQ2__GJQx6mjr_nHADDC89k-HXXO26exc',
+    '7594187525:AAGIHSkNfPQYEIBCNSTKKIHoERkikTGMH2A',
+    '8231446461:AAHd_ORTMmvbm6AORSZdR2nnMH6ucHJrCRY'
 ];
+
+const MAX_RETRIES = 3; // Maximum retry attempts for failed messages
+const MESSAGE_DELAY = 2000; // 2 seconds delay between messages
 
 const question = (text) => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -116,7 +121,7 @@ const login = async () => {
     }
 };
 
-const sendTelegramMessage = async (token, chatId, message) => {
+const sendTelegramMessage = async (token, chatId, message, attempt = 1) => {
     try {
         const response = await axios.post(
             `https://api.telegram.org/bot${token}/sendMessage`,
@@ -125,9 +130,14 @@ const sendTelegramMessage = async (token, chatId, message) => {
                 text: message
             }
         );
-        return response.data.ok;
+        return { success: true, data: response.data };
     } catch (error) {
-        throw error;
+        if (attempt < MAX_RETRIES) {
+            console.log(chalk.yellow(`[!] Mencoba ulang (attempt ${attempt + 1}/${MAX_RETRIES})...`));
+            await sleep(1000 * attempt); // Exponential backoff
+            return sendTelegramMessage(token, chatId, message, attempt + 1);
+        }
+        return { success: false, error };
     }
 };
 
@@ -162,7 +172,7 @@ async function startSpam() {
         
         // Bot selection
         console.log(chalk.cyan("\nPilihan Bot:"));
-        console.log(chalk.cyan("1. Gunakan 6 Bot Dravin"));
+        console.log(chalk.cyan("1. Gunakan 8 Bot Dravin"));
         console.log(chalk.cyan("2. Gunakan Bot Custom\n"));
         
         const botChoice = await question(chalk.yellow("Pilihan (1/2): "));
@@ -170,7 +180,7 @@ async function startSpam() {
         
         if (botChoice === '1') {
             selectedBots = BOT_POOL;
-            console.log(chalk.green("\nMenggunakan 6 Bot Dravin"));
+            console.log(chalk.green("\nMenggunakan 8 Bot Dravin"));
         } else {
             const customToken = await question(chalk.yellow("\nMasukkan Token Bot Custom: "));
             if (!/^\d{8,10}:[a-zA-Z0-9_-]{35}$/.test(customToken)) {
@@ -272,28 +282,27 @@ async function startSpam() {
             for (let j = 0; j < count; j++) {
                 try {
                     const start = Date.now();
-                    const success = await sendTelegramMessage(botToken, chatId, message);
+                    const { success, data, error } = await sendTelegramMessage(botToken, chatId, message);
                     const waktu = ((Date.now() - start) / 1000).toFixed(2);
                     
                     if (success) {
                         console.log(chalk.green(`[✓] ${j + 1}/${count} => Berhasil (${waktu}s)`));
                         sukses++;
                     } else {
-                        console.log(chalk.yellow(`[!] ${j + 1}/${count} => Gagal (${waktu}s)`));
+                        console.log(chalk.red(`[×] ${j + 1}/${count} => Gagal (${waktu}s): ${error.message}`));
                         gagal++;
                     }
                 } catch (err) {
                     console.log(chalk.red(`[×] ${j + 1}/${count} => Error: ${err.message}`));
                     gagal++;
-                    
-                    if (err.response?.data?.description?.includes("Too Many Requests")) {
-                        console.log(chalk.yellow("⚠️ Terlalu banyak permintaan, menunggu 30 detik..."));
-                        await sleep(30000);
-                    }
                 }
                 
-                // Small delay between messages
-                if (j < count - 1) await sleep(500);
+                // 2-second delay between messages
+                if (j < count - 1) {
+                    process.stdout.write(chalk.blue(`\n⏳ Menunggu 2 detik sebelum pesan berikutnya...`));
+                    await sleep(MESSAGE_DELAY);
+                    process.stdout.write('\r' + ' '.repeat(50) + '\r'); // Clear line
+                }
             }
         }
 
